@@ -1,6 +1,6 @@
 function Drawer() {
   return (
-    <div className="overlay">
+    <div style={{ display: "none" }} className="overlay">
       <div className="drawer">
         <h2 className="mb-20 d-flex justify-between">
           Корзина{" "}
