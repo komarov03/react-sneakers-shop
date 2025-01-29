@@ -132,8 +132,8 @@ function App() {
             }
           />
 
-          <Route path="favorites" element={<Favorites />} />
-          <Route path="orders" element={<Orders />} />
+          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/orders" element={<Orders />} />
         </Routes>
       </div>
     </AppContext.Provider>
