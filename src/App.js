@@ -1,58 +1,142 @@
-import { useEffect, useState } from "react";
-import Card from "./components/Card";
+import axios from "axios";
+import { createContext, useEffect, useState } from "react";
+import { Route, Routes } from "react-router-dom";
 import Drawer from "./components/Drawer";
 import Header from "./components/Header";
+import Home from "./pages/Home";
+import Favorites from "./pages/Favorites";
+import Orders from "./pages/Orders";
+
+export const AppContext = createContext({});
 
 function App() {
   const [items, setItems] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [cartItems, setCartItems] = useState([]);
+  const [searchValue, setSearchValue] = useState("");
   const [isCartOpened, setCartOpened] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("https://676aefb4bc36a202bb83b237.mockapi.io/items")
-      .then((res) => {
-        return res.json();
-      })
-      .then((data) => {
-        setItems(data);
-      });
+    async function fetchData() {
+      try {
+        const cartResponse = await axios.get("http://localhost:3000/cart");
+        const itemsResponse = await axios.get("http://localhost:3000/items");
+        const favoritesResponse = await axios.get(
+          "http://localhost:3000/favorites"
+        );
+
+        setCartItems(cartResponse.data);
+        setFavorites(favoritesResponse.data);
+        setItems(itemsResponse.data);
+
+        setIsLoading(false);
+      } catch (error) {
+        alert("Ошибка при запросе данных");
+        console.error(error);
+      }
+    }
+
+    fetchData();
   }, []);
 
-  const onAddToCard = (item) => {
-    setCartItems((prev) => [...prev, item]);
+  const onRemoveCart = (id) => {
+    try {
+      axios.delete(`http://localhost:3000/cart/${id}`);
+      setCartItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (error) {
+      alert("Ошибка при добавлении в корзину");
+      console.error(error);
+    }
+  };
+
+  const onAddToCart = async (item) => {
+    try {
+      if (cartItems.find((obj) => obj.id === item.id)) {
+        setCartItems((prev) => prev.filter((obj) => obj.id !== item.id));
+        await axios.delete(`http://localhost:3000/cart/${item.id}`);
+      } else {
+        setCartItems((prev) => [...prev, item]);
+        await axios.post("http://localhost:3000/cart", item);
+      }
+    } catch (error) {
+      alert("Ошибка при добавлении в корзину");
+    }
+  };
+
+  const onAddToFavorite = async (obj) => {
+    try {
+      if (favorites.find((favObj) => favObj.id === obj.id)) {
+        axios.delete(`http://localhost:3000/favorites/${obj.id}`);
+        setFavorites((prev) => prev.filter((item) => item.id !== obj.id));
+      } else {
+        const { data } = await axios.post(
+          "http://localhost:3000/favorites",
+          obj
+        );
+        setFavorites((prev) => [...prev, data]);
+      }
+    } catch (error) {
+      alert("Не удалось добавить в избранное");
+    }
+  };
+
+  const onChangeSearchInput = (event) => {
+    setSearchValue(event.target.value);
+  };
+
+  const isAddedToCart = (id) => {
+    return cartItems.some((obj) => obj.id === id);
+  };
+
+  const isAddedToFavorites = (id) => {
+    return favorites.some((obj) => obj.id === id);
   };
 
   return (
-    <div className="wrapper clear">
-      {isCartOpened && (
-        <Drawer items={cartItems} setCartClosed={() => setCartOpened(false)} />
-      )}
-      <Header setCartOpened={() => setCartOpened(true)} />
-      <div className="content p-40">
-        <div className="d-flex align-center justify-between mb-40">
-          <h1>Все кроссовки</h1>
-          <div className="search-block d-flex">
-            <img src="/img/search.svg" alt="Search" />
-            <input type="text" placeholder="Поиск..." />
-          </div>
-        </div>
-        <div className="d-flex flex-wrap">
-          {items.map((obj) => (
-            <Card
-              title={obj.title}
-              price={obj.price}
-              imageUrl={obj.imageUrl}
-              onPlus={(item) => {
-                onAddToCard(item);
-              }}
-              onFavorite={() => {
-                console.log("Добавили в избрбанное");
-              }}
-            />
-          ))}
-        </div>
+    <AppContext.Provider
+      value={{
+        cartItems,
+        favorites,
+        items,
+        isAddedToCart,
+        isAddedToFavorites,
+        onAddToFavorite,
+        setCartItems,
+        onAddToCart,
+      }}
+    >
+      <div className="wrapper clear">
+        <Drawer
+          items={cartItems}
+          onRemove={onRemoveCart}
+          setCartClosed={() => setCartOpened(false)}
+          opened={isCartOpened}
+        />
+        <Header setCartOpened={() => setCartOpened(true)} />
+        <Routes>
+          <Route
+            path="/"
+            exact
+            element={
+              <Home
+                items={items}
+                cartItems={cartItems}
+                searchValue={searchValue}
+                setSearchValue={setSearchValue}
+                onChangeSearchInput={onChangeSearchInput}
+                onAddToFavorite={onAddToFavorite}
+                onAddToCart={onAddToCart}
+                isLoading={isLoading}
+              />
+            }
+          />
+
+          <Route path="/favorites" element={<Favorites />} />
+          <Route path="/orders" element={<Orders />} />
+        </Routes>
       </div>
-    </div>
+    </AppContext.Provider>
   );
 }
 
